@@ -122,6 +122,11 @@ svg.teeth{width:100%;max-width:420px;height:auto;display:block;margin:0 auto}
 .two{display:grid;grid-template-columns:1fr 1.4fr;gap:18px}
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .fld{display:grid;gap:4px} .fld label{font-size:.84rem;color:var(--ink-2)}
+.fields>*,.fld{min-width:0}
+input,select{min-width:0;max-width:100%}
+input[type=date]{-webkit-appearance:none;appearance:none;display:block;min-height:2.6em;text-align:left}
+input[type=date]::-webkit-date-and-time-value{text-align:left}
+input[type=date]::-webkit-datetime-edit{padding:0}
 input[type=number],input[type=text],input[type=date],select{width:100%;font:500 1rem var(--f-body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px 10px}
 .btn{appearance:none;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font:500 .92rem var(--f-body);padding:8px 16px;border-radius:8px;cursor:pointer}
 .btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
