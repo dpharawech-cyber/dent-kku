@@ -107,6 +107,19 @@ svg.teeth{width:100%;max-width:420px;height:auto;display:block;margin:0 auto}
 .chip{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font:500 .88rem var(--f-body);padding:6px 12px;border-radius:999px;cursor:pointer;display:inline-flex;gap:8px;align-items:center}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .chip .num{font-size:.78rem;opacity:.8}
+/* subject picker: brick */
+.chip[data-sj]{border-color:transparent;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line)}
+.chip[data-sj][aria-pressed="true"]{background:var(--brick);color:#fff;box-shadow:none}
+.chip[data-sj] .bar{display:inline-block;width:28px;height:4px;border-radius:2px;background:var(--sunk);overflow:hidden;vertical-align:middle}
+.chip[data-sj] .bar i{display:block;height:100%;background:var(--ok)}
+.chip[data-sj][aria-pressed="true"] .bar{background:rgba(255,255,255,.3)} .chip[data-sj][aria-pressed="true"] .bar i{background:#fff}
+/* topic filter: small, semantic */
+.filterrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.filterrow .lbl{font-size:.8rem;color:var(--ink-3);margin-right:2px}
+.chip[data-tf]{font-size:.8rem;padding:3px 10px;border-radius:6px;background:transparent;border-style:dashed}
+.chip[data-tf]::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--fc,var(--ink-3))}
+.chip[data-tf="all"]{--fc:var(--ink-2)} .chip[data-tf="weak"]{--fc:var(--bad)} .chip[data-tf="none"]{--fc:var(--ink-3)} .chip[data-tf="stale"]{--fc:var(--warn)}
+.chip[data-tf][aria-pressed="true"]{border-style:solid;border-color:var(--fc);color:var(--fc);background:color-mix(in srgb,var(--fc) 12%,transparent)}
 .topics{display:grid;gap:0}
 .tp{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
 .tp:first-child{border-top:0}
@@ -320,7 +333,7 @@ $('#app').innerHTML=`
   <section class="panel" id="p-syllabus" hidden>
     <div class="head"><h2>เนื้อหาแต่ละวิชา</h2><p>เคยเรียนครบแล้ว รอบนี้ให้ประเมินว่าแต่ละหัวข้อตอนนี้ อ่อน พอได้ หรือแม่น (ดูจากการทำโจทย์ ไม่ใช่ความรู้สึก) ทุกครั้งที่ทบทวนหรือทำโจทย์หัวข้อไหน ให้กดประเมินใหม่ วันที่จะอัปเดตเอง หัวข้อที่ไม่ได้แตะเกิน 14 วันจะขึ้นเตือน กดซ้ำระดับเดิมเพื่อล้าง</p></div>
     <div class="subjtabs" id="subjTabs"></div>
-    <div class="subjtabs" id="tpFilter"></div>
+    <div class="filterrow" id="tpFilter"></div>
     <div class="card stack">
       <div class="sumline"><h3 id="sjName"></h3><span class="small muted num" id="sjSum"></span></div>
       <div class="track" id="sjTrack"></div>
@@ -430,9 +443,9 @@ function renderOverview(){
 let curS='tpat';
 let tpF='all';
 function renderSyllabus(){
-  $('#subjTabs').innerHTML=SUBJ.map(s=>`<button class="chip" data-sj="${s.k}" aria-pressed="${s.k===curS}">${s.n}<span class="num">${Math.round(subjProg(s.k).p*100)}%</span></button>`).join('');
+  $('#subjTabs').innerHTML=SUBJ.map(s=>{const p=subjProg(s.k).p;return `<button class="chip" data-sj="${s.k}" aria-pressed="${s.k===curS}">${s.n}<span class="bar"><i style="width:${p*100}%"></i></span><span class="num">${Math.round(p*100)}%</span></button>`}).join('');
   const F=[['all','ทุกหัวข้อ'],['weak','อ่อน'],['none','ยังไม่ประเมิน'],['stale','ไม่ได้แตะเกิน 14 วัน']];
-  $('#tpFilter').innerHTML=F.map(([k,l])=>`<button class="chip" data-tf="${k}" aria-pressed="${k===tpF}">${l}</button>`).join('');
+  $('#tpFilter').innerHTML='<span class="lbl">แสดง:</span>'+F.map(([k,l])=>`<button class="chip" data-tf="${k}" aria-pressed="${k===tpF}">${l}</button>`).join('');
   const s=SK[curS],{c,n,p}=subjProg(curS);
   $('#sjName').textContent=s.n;
   $('#sjSum').textContent=`${Math.round(p*100)}% · แม่น ${c[3]} · พอได้ ${c[2]} · อ่อน ${c[1]} · ยังไม่ประเมิน ${c[0]}`;
