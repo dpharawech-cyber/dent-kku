@@ -92,7 +92,7 @@ svg.teeth{width:100%;max-width:420px;height:auto;display:block;margin:0 auto}
 .sb .nm small{color:var(--ink-3);font-family:var(--f-mono);font-size:.74rem}
 .track{height:12px;background:var(--sunk);border-radius:6px;overflow:hidden;display:flex}
 .track i{display:block;height:100%}
-.track .s3{background:var(--brick)} .track .s2{background:var(--h3);opacity:.6} .track .s1{background:var(--h2);opacity:.45}
+.track .s3{background:var(--ok)} .track .s2{background:var(--warn)} .track .s1{background:var(--bad)}
 .sb .v{font-family:var(--f-mono);text-align:right;color:var(--ink-2)}
 .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.8rem;color:var(--ink-3)}
 .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;background:var(--c)}
@@ -112,10 +112,18 @@ svg.teeth{width:100%;max-width:420px;height:auto;display:block;margin:0 auto}
 .tp:first-child{border-top:0}
 .steps{display:flex;gap:4px}
 .st{appearance:none;border:1px solid var(--line);background:var(--bg);color:var(--ink-3);font:500 .78rem var(--f-body);padding:4px 9px;border-radius:6px;cursor:pointer;white-space:nowrap}
-.st.on{background:var(--brick);border-color:var(--brick);color:#fff}
-:root[data-theme="dark"] .st.on{color:#1a0f0b}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .st.on{color:#1a0f0b}}
-.st.lit{background:var(--brick-soft);border-color:transparent;color:var(--brick)}
+.st.on[data-v="1"]{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.st.on[data-v="2"]{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+.st.on[data-v="3"]{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.tp .when{display:block;font-size:.76rem;color:var(--ink-3)}
+.tp .when.stale{color:var(--warn)}
+.st{font-size:.84rem;padding:5px 12px}
+.todo{display:grid;gap:0;margin:6px 0 0;padding:0;list-style:none}
+.todo li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:7px 0;border-top:1px solid color-mix(in srgb,var(--brick) 20%,transparent);cursor:pointer}
+.todo li:first-child{border-top:0}
+.todo .sj{font-size:.76rem;font-family:var(--f-mono);color:var(--ink-3)}
+.lvl{font-size:.74rem;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.lvl.l0{background:var(--sunk);color:var(--ink-2)} .lvl.l1{background:var(--bad-soft);color:var(--bad)} .lvl.l2{background:var(--warn-soft);color:var(--warn)}
 .sumline{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:baseline}
 
 /* mocks */
@@ -211,7 +219,9 @@ const SUBJ=[
  {k:'soc',n:'สังคม',w:7,t:['ศาสนาและศีลธรรม','หน้าที่พลเมืองและกฎหมาย','เศรษฐศาสตร์','ประวัติศาสตร์','ภูมิศาสตร์']},
 ];
 const SK=Object.fromEntries(SUBJ.map(s=>[s.k,s]));
-const STEP=['อ่านแล้ว','ทำโจทย์','ทบทวนแล้ว'];
+const STEP=['อ่อน','พอได้','แม่น'];
+const VAL=[0,0.2,0.6,1];
+const STALE=14;
 const EV=[
  ['t1','2026-09-01','2026-09-20','สมัครสอบ TPAT1 กสพท และได้เลขที่นั่งสอบ','กสพท'],
  ['t2',null,null,'อ่านเงื่อนไขผู้สมัครที่ยังมีสถานภาพนักศึกษาในประกาศ กสพท ฉบับที่ 1 (เด็กซิ่ว)','กสพท'],
@@ -235,7 +245,7 @@ const EMPTY={v:1,updatedAt:null,topics:{},mocks:[],days:{},tasks:{},target:null}
 let S=JSON.parse(JSON.stringify(EMPTY));
 let mode='mine', dirty=0, shareFor=null;
 try{const raw=localStorage.getItem(KEY);if(raw)S=Object.assign(S,JSON.parse(raw))}catch(e){}
-function norm(){S.topics=S.topics||{};S.mocks=S.mocks||[];S.days=S.days||{};S.tasks=S.tasks||{}}
+function norm(){S.tdate=S.tdate||{};S.topics=S.topics||{};if((S.v||1)<2){S.topics={};S.tdate={};S.v=2}S.mocks=S.mocks||[];S.days=S.days||{};S.tasks=S.tasks||{}}
 norm();
 function touch(){if(mode!=='mine')return;S.updatedAt=new Date().toISOString();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){};renderBar()}
 
@@ -251,7 +261,9 @@ const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const $=s=>document.querySelector(s);
 
 /* ======== computations ======== */
-function subjProg(k){const s=SK[k];const arr=s.t.map((_,i)=>(S.topics[k+':'+i]||0));const c=[0,0,0,0];arr.forEach(v=>c[v]++);return{p:arr.reduce((a,b)=>a+b,0)/(3*arr.length),c,n:arr.length}}
+function subjProg(k){const s=SK[k];const arr=s.t.map((_,i)=>(S.topics[k+':'+i]||0));const c=[0,0,0,0];arr.forEach(v=>c[v]++);return{p:arr.reduce((a,v)=>a+VAL[v],0)/arr.length,c,n:arr.length}}
+function ago(k){const d=S.tdate&&S.tdate[k];return d?Math.max(0,Math.round((TODAY-pd(d))/864e5)):null}
+function priorities(){const out=[];SUBJ.forEach(s=>s.t.forEach((t,i)=>{const k=s.k+':'+i,v=S.topics[k]||0;if(v===0)return;if(v===3&&(ago(k)??0)<STALE*2)return;const a=ago(k);let need=v===0?0.7:v===1?1:v===2?0.45:0.25;if(a!=null&&a>STALE)need+=0.25;out.push({k,s,t,v,a,score:need*s.w/s.t.length})}));return out.sort((x,y)=>y.score-x.score)}
 function readiness(){return SUBJ.reduce((a,s)=>a+subjProg(s.k).p*s.w,0)/100}
 function latest(){const m={};S.mocks.slice().sort((a,b)=>a.dt.localeCompare(b.dt)).forEach(x=>{m[x.sk]=x.sc});return m}
 function composite(m){const need=['tpat','phy','chem','bio','math','eng','thai','soc'];if(!need.every(k=>m[k]!=null))return null;const sci=(m.phy+m.chem+m.bio)/3;return m.tpat*.3+(sci*.4+m.math*.2+m.eng*.2+m.thai*.1+m.soc*.1)*.7}
@@ -285,12 +297,12 @@ $('#app').innerHTML=`
         <div class="eyebrow">ความพร้อมรวม (ถ่วงน้ำหนักตาม กสพท)</div>
         <div class="pct num" id="rPct"></div>
         <svg class="teeth" id="teeth" viewBox="-10 -14 460 282" role="img" aria-label="ฟัน 32 ซี่ เติมสีตามความพร้อม"></svg>
-        <p class="small muted">ฟัน 1 ซี่ ≈ ความพร้อม 3% ความพร้อมคิดจากเนื้อหาที่ ทบทวนแล้ว (เต็ม) ทำโจทย์ (2/3) อ่านแล้ว (1/3) คูณน้ำหนักแต่ละวิชาในคะแนน กสพท</p>
+        <p class="small muted">ฟัน 1 ซี่ ≈ ความพร้อม 3% คิดจากที่ประเมินตัวเองแต่ละหัวข้อ: แม่น = เต็ม, พอได้ = 60%, อ่อน = 20%, ยังไม่ประเมิน = 0 แล้วคูณน้ำหนักวิชาในคะแนน กสพท</p>
       </div>
       <div class="card stack">
         <div class="eyebrow">รายวิชา · กดเพื่อไปที่เนื้อหา</div>
         <div class="sbars" id="sbars"></div>
-        <div class="legend"><span style="--c:var(--brick)">ทบทวนแล้ว</span><span style="--c:var(--h3)">ทำโจทย์</span><span style="--c:var(--h2)">อ่านแล้ว</span></div>
+        <div class="legend"><span style="--c:var(--ok)">แม่น</span><span style="--c:var(--warn)">พอได้</span><span style="--c:var(--bad)">อ่อน</span><span style="--c:var(--sunk)">ยังไม่ประเมิน</span></div>
         <div class="focus" id="focus"></div>
       </div>
     </div>
@@ -306,8 +318,9 @@ $('#app').innerHTML=`
   </section>
 
   <section class="panel" id="p-syllabus" hidden>
-    <div class="head"><h2>เนื้อหาแต่ละวิชา</h2><p>กดขั้นที่ทำถึงแล้วในแต่ละหัวข้อ กดซ้ำขั้นเดิมเพื่อถอยกลับ หัวข้อเป็นขอบเขตคร่าว ๆ ของ A-Level และ TPAT1 เทียบกับ blueprint ปีล่าสุดอีกครั้ง</p></div>
+    <div class="head"><h2>เนื้อหาแต่ละวิชา</h2><p>เคยเรียนครบแล้ว รอบนี้ให้ประเมินว่าแต่ละหัวข้อตอนนี้ อ่อน พอได้ หรือแม่น (ดูจากการทำโจทย์ ไม่ใช่ความรู้สึก) ทุกครั้งที่ทบทวนหรือทำโจทย์หัวข้อไหน ให้กดประเมินใหม่ วันที่จะอัปเดตเอง หัวข้อที่ไม่ได้แตะเกิน 14 วันจะขึ้นเตือน กดซ้ำระดับเดิมเพื่อล้าง</p></div>
     <div class="subjtabs" id="subjTabs"></div>
+    <div class="subjtabs" id="tpFilter"></div>
     <div class="card stack">
       <div class="sumline"><h3 id="sjName"></h3><span class="small muted num" id="sjSum"></span></div>
       <div class="track" id="sjTrack"></div>
@@ -398,9 +411,12 @@ function renderOverview(){
   document.querySelectorAll('#teeth .tooth').forEach(p=>p.setAttribute('fill',+p.dataset.k<fill?'var(--brick)':'var(--tooth)'));
   $('#teethMid').textContent=fill+' / 32 ซี่';
   $('#sbars').innerHTML=SUBJ.map(s=>{const{c,n,p}=subjProg(s.k);const seg=(v,cls)=>`<i class="${cls}" style="width:${v/n*100}%"></i>`;return `<button class="sb" data-go="${s.k}"><span class="nm">${s.n}<small>น้ำหนัก ${s.w.toFixed(s.w%1?1:0)}%</small></span><span class="track">${seg(c[3],'s3')}${seg(c[2],'s2')}${seg(c[1],'s1')}</span><span class="v">${Math.round(p*100)}%</span></button>`}).join('');
-  let best=null,bv=-1;SUBJ.forEach(s=>{const v=s.w*(1-subjProg(s.k).p);if(v>bv){bv=v;best=s}});
   const lm=latest();const low=SUBJ.filter(s=>lm[s.k]!=null&&lm[s.k]<30);
-  $('#focus').innerHTML=(low.length?`<b>ระวังเกณฑ์ 30%:</b> ${low.map(s=>s.n+' '+lm[s.k]+'%').join(', ')} จากสอบซ้อมล่าสุด ถ้าต่ำกว่า 30% ในสนามจริงจะไม่ถูกนำไปจัดอันดับ<br>`:'')+`<b>ควรโฟกัสต่อ:</b> ${best.n} ยังเหลือเนื้อหาที่มีผลต่อคะแนนรวมมากที่สุด (≈${bv.toFixed(1)} จาก 100)`;
+  const pr=priorities().slice(0,5);const lab=['ยังไม่ประเมิน','อ่อน','พอได้','แม่น'];
+  $('#focus').innerHTML=(low.length?`<p style="margin-bottom:8px"><b>ระวังเกณฑ์ 30%:</b> ${low.map(s=>s.n+' '+lm[s.k]+'%').join(', ')} จากสอบซ้อมล่าสุด</p>`:'')
+   +(()=>{const n0=SUBJ.reduce((a,s)=>a+subjProg(s.k).c[0],0);return n0?`<p style="margin-bottom:8px"><b>ยังไม่ได้ประเมิน ${n0} หัวข้อ</b> <button class="chip" data-none="1" style="margin-left:6px">ไปประเมิน</button></p>`:''})()
+   +`<b>ทบทวน 5 เรื่องนี้ก่อน</b> <span class="small muted">(เรียงจากเรื่องอ่อน × น้ำหนักคะแนน × ไม่ได้แตะนาน)</span>`
+   +(pr.length?`<ul class="todo">${pr.map(x=>`<li data-go="${x.s.k}"><span class="sj">${x.s.n}</span><span>${esc(x.t)}${x.a!=null&&x.a>STALE?` <span class="small" style="color:var(--warn)">· ${x.a} วัน</span>`:''}</span><span class="lvl l${x.v}">${lab[x.v]}</span></li>`).join('')}</ul>`:(SUBJ.some(s=>subjProg(s.k).c[0]<s.t.length)?'<p class="small">ทุกหัวข้อที่ประเมินแล้วแม่นและเพิ่งทบทวน</p>':'<p class="small muted">ประเมินหัวข้อในแท็บเนื้อหาก่อน รายการจะขึ้นที่นี่</p>'));
   const comp=composite(lm);const have=SUBJ.filter(s=>lm[s.k]!=null).length;
   $('#oComp').innerHTML=comp==null?'—':comp.toFixed(2)+'<small>/100</small>';
   $('#oCompSub').textContent=comp==null?`มีคะแนนสอบซ้อม ${have}/8 วิชา ต้องครบทุกวิชาจึงคำนวณได้`:'ประมาณการจากคะแนนล่าสุดของแต่ละวิชา';
@@ -412,14 +428,18 @@ function renderOverview(){
   drawHM($('#hmMini'),false);
 }
 let curS='tpat';
+let tpF='all';
 function renderSyllabus(){
   $('#subjTabs').innerHTML=SUBJ.map(s=>`<button class="chip" data-sj="${s.k}" aria-pressed="${s.k===curS}">${s.n}<span class="num">${Math.round(subjProg(s.k).p*100)}%</span></button>`).join('');
+  const F=[['all','ทุกหัวข้อ'],['weak','อ่อน'],['none','ยังไม่ประเมิน'],['stale','ไม่ได้แตะเกิน 14 วัน']];
+  $('#tpFilter').innerHTML=F.map(([k,l])=>`<button class="chip" data-tf="${k}" aria-pressed="${k===tpF}">${l}</button>`).join('');
   const s=SK[curS],{c,n,p}=subjProg(curS);
   $('#sjName').textContent=s.n;
-  $('#sjSum').textContent=`${Math.round(p*100)}% · ทบทวน ${c[3]} · ทำโจทย์ ${c[2]} · อ่าน ${c[1]} · ยังไม่เริ่ม ${c[0]} จาก ${n} หัวข้อ`;
+  $('#sjSum').textContent=`${Math.round(p*100)}% · แม่น ${c[3]} · พอได้ ${c[2]} · อ่อน ${c[1]} · ยังไม่ประเมิน ${c[0]}`;
   const seg=(v,cls)=>`<i class="${cls}" style="width:${v/n*100}%"></i>`;
   $('#sjTrack').innerHTML=seg(c[3],'s3')+seg(c[2],'s2')+seg(c[1],'s1');
-  $('#topics').innerHTML=s.t.map((t,i)=>{const v=S.topics[curS+':'+i]||0;return `<div class="tp"><span>${esc(t)}</span><span class="steps">${STEP.map((l,j)=>`<button class="st ${v===j+1?'on':v>j+1?'lit':''}" data-tp="${curS}:${i}" data-v="${j+1}" aria-pressed="${v>=j+1}">${l}</button>`).join('')}</span></div>`}).join('');
+  const rows=s.t.map((t,i)=>({t,i,k:curS+':'+i,v:S.topics[curS+':'+i]||0,a:ago(curS+':'+i)})).filter(r=>tpF==='all'||(tpF==='weak'&&r.v===1)||(tpF==='none'&&r.v===0)||(tpF==='stale'&&r.v>0&&r.a>STALE));
+  $('#topics').innerHTML=rows.length?rows.map(r=>`<div class="tp"><span>${esc(r.t)}<span class="when ${r.a!=null&&r.a>STALE?'stale':''}">${r.a==null?'ยังไม่ประเมิน':r.a===0?'ประเมินวันนี้':'ประเมินล่าสุด '+r.a+' วันก่อน'}</span></span><span class="steps">${STEP.map((l,j)=>`<button class="st ${r.v===j+1?'on':''}" data-tp="${r.k}" data-v="${j+1}" aria-pressed="${r.v===j+1}">${l}</button>`).join('')}</span></div>`).join(''):'<p class="muted small" style="padding:10px 0">ไม่มีหัวข้อในตัวกรองนี้</p>';
 }
 let mSel='all';
 function renderMocks(){
@@ -489,10 +509,12 @@ function all(){renderCounts();renderOverview();renderSyllabus();renderMocks();re
 /* ======== events ======== */
 document.addEventListener('click',e=>{
   const t=e.target;
-  if(mode==='view'&&t.closest('[data-tp],[data-del],[data-day],#m-add,.ev')){e.preventDefault();return}
-  const tp=t.closest('[data-tp]');if(tp){const k=tp.dataset.tp,v=+tp.dataset.v;S.topics[k]=(S.topics[k]||0)===v?v-1:v;if(!S.topics[k])delete S.topics[k];touch();renderSyllabus();renderOverview();return}
+  if(mode==='view'&&t.closest('[data-tp]:not([data-go]),[data-del],[data-day],#m-add,.ev')){e.preventDefault();return}
+  const tp=t.closest('[data-tp]');if(tp){const k=tp.dataset.tp,v=+tp.dataset.v;if((S.topics[k]||0)===v){delete S.topics[k];delete S.tdate[k]}else{S.topics[k]=v;S.tdate[k]=TISO}touch();renderSyllabus();renderOverview();return}
+  if(t.closest('[data-none]')){tpF='none';const f=SUBJ.find(s=>subjProg(s.k).c[0]>0);if(f)curS=f.k;renderSyllabus();show('syllabus');return}
+  const tf=t.closest('[data-tf]');if(tf){tpF=tf.dataset.tf;renderSyllabus();return}
   const sj=t.closest('[data-sj]');if(sj){curS=sj.dataset.sj;renderSyllabus();return}
-  const go=t.closest('[data-go]');if(go){curS=go.dataset.go;renderSyllabus();show('syllabus');return}
+  const go=t.closest('[data-go]');if(go){curS=go.dataset.go;tpF='all';renderSyllabus();show('syllabus');return}
   const ms=t.closest('[data-ms]');if(ms){mSel=ms.dataset.ms;renderMocks();return}
   const del=t.closest('[data-del]');if(del){S.mocks=S.mocks.filter(x=>String(x.id)!==del.dataset.del);touch();renderMocks();renderOverview();return}
   const day=t.closest('[data-day]');if(day){cycleDay(day.dataset.day);return}
